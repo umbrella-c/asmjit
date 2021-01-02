@@ -165,7 +165,7 @@ int TestApp::run() {
 #endif
 
 #if defined(ASMJIT_BUILD_ARM) && ASMJIT_ARCH_ARM == 64
-    arm::Compiler cc(&code);
+    a64::Compiler cc(&code);
 #endif
 
     perfTimer.start();

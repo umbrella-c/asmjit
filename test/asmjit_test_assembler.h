@@ -93,4 +93,3 @@ public:
 };
 
 #endif // ASMJIT_TEST_ASSEMBLER_H_INCLUDED
-
