@@ -67,6 +67,9 @@ public:
   };
   Handle _handle;
 #pragma pack(pop)
+#elif defined(MOLLENOS)
+  typedef mtx_t Handle;
+  Handle _handle;
 #elif !defined(__EMSCRIPTEN__)
   typedef pthread_mutex_t Handle;
   Handle _handle;

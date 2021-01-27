@@ -84,7 +84,12 @@ struct Info {
 //! where one region is read-only, but executable, and the second region is
 //! read+write, but not executable. Please see \ref VirtMem::allocDualMapping()
 //! for more details.
+
 struct DualMapping {
+#ifdef MOLLENOS
+  struct dma_attachment rwAttachment;
+  struct dma_attachment rxAttachment;
+#endif
   //! Pointer to data with 'Read' or 'Read+Execute' access.
   void* ro;
   //! Pointer to data with 'Read-Write' access, but never 'Write+Execute'.

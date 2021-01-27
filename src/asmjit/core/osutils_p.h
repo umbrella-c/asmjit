@@ -47,6 +47,14 @@ inline Lock::~Lock() noexcept { DeleteCriticalSection(reinterpret_cast<CRITICAL_
 inline void Lock::lock() noexcept { EnterCriticalSection(reinterpret_cast<CRITICAL_SECTION*>(&_handle)); }
 inline void Lock::unlock() noexcept { LeaveCriticalSection(reinterpret_cast<CRITICAL_SECTION*>(&_handle)); }
 
+#elif defined(MOLLENOS)
+
+// C11 implementation.
+inline Lock::Lock() noexcept { mtx_init(&_handle, mtx_plain); }
+inline Lock::~Lock() noexcept { mtx_destroy(&_handle); }
+inline void Lock::lock() noexcept { mtx_lock(&_handle); }
+inline void Lock::unlock() noexcept { mtx_unlock(&_handle); }
+
 #elif !defined(__EMSCRIPTEN__)
 
 // PThread implementation.

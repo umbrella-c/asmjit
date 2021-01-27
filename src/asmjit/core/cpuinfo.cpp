@@ -24,7 +24,7 @@
 #include "../core/api-build_p.h"
 #include "../core/cpuinfo.h"
 
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(MOLLENOS)
   #include <errno.h>
   #include <sys/utsname.h>
   #include <unistd.h>
@@ -41,6 +41,13 @@ static inline uint32_t detectHWThreadCount() noexcept {
   SYSTEM_INFO info;
   ::GetSystemInfo(&info);
   return info.dwNumberOfProcessors;
+}
+#elif defined(MOLLENOS)
+#include <os/mollenos.h>
+static inline uint32_t detectHWThreadCount() noexcept {
+  SystemDescriptor_t descriptor;
+  SystemQuery(&descriptor);
+  return (uint32_t)descriptor.NumberOfActiveCores;
 }
 #elif defined(_SC_NPROCESSORS_ONLN)
 static inline uint32_t detectHWThreadCount() noexcept {

@@ -137,10 +137,14 @@ namespace asmjit {
 #include <type_traits>
 #include <utility>
 
-#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#if !defined(_WIN32) && !defined(MOLLENOS) && !defined(__EMSCRIPTEN__)
   #include <pthread.h>
 #endif
 
+#ifdef MOLLENOS
+  #include <threads.h>
+  #include <os/dmabuf.h>
+#endif
 
 // ============================================================================
 // [asmjit::Options]

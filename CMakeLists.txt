@@ -228,7 +228,7 @@ if (ASMJIT_SANITIZE)
   endif()
 endif()
 
-if (NOT WIN32)
+if (NOT WIN32 AND NOT MOLLENOS)
   list(APPEND ASMJIT_DEPS pthread)
 endif()
 
@@ -269,7 +269,7 @@ endforeach()
 # [AsmJit - Linker Support]
 # =============================================================================
 
-if (WIN32)
+if (WIN32 OR MOLLENOS)
   if(CMAKE_LINKER MATCHES "link\\.exe" OR CMAKE_LINKER MATCHES "lld-link\\.exe")
     set(ASMJIT_LINKER_SUPPORTS_NATVIS TRUE)
   endif()
@@ -401,8 +401,12 @@ set(ASMJIT_SRC_LIST
   asmjit/x86/x86rapass_p.h
 )
 
-if (MSVC AND NOT ASMJIT_NO_NATVIS)
+if ((MSVC OR MOLLENOS) AND NOT ASMJIT_NO_NATVIS)
   list(APPEND ASMJIT_SRC_LIST asmjit.natvis)
+endif()
+
+if (MOLLENOS)
+  list(APPEND ASMJIT_SRC_LIST asmjit/vali.cpp)
 endif()
 
 set(ASMJIT_SRC "")

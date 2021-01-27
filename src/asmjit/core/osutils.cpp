@@ -27,6 +27,8 @@
 
 #if defined(_WIN32)
   #include <atomic>
+#elif defined(MOLLENOS)
+  #include <time.h>
 #elif defined(__APPLE__)
   #include <mach/mach_time.h>
 #else
@@ -89,6 +91,13 @@ uint32_t OSUtils::getTickCount() noexcept {
   // `mach_absolute_time()` returns nanoseconds, we want milliseconds.
   uint64_t t = mach_absolute_time() / 1000000u;
   t = (t * _machTime.numer) / _machTime.denom;
+  return uint32_t(t & 0xFFFFFFFFu);
+#elif defined(MOLLENOS)
+  struct timespec ts;
+  if (ASMJIT_UNLIKELY(timespec_get(&ts, TIME_MONOTONIC) != 0))
+    return 0;
+
+  uint64_t t = (uint64_t(ts.tv_sec ) * 1000u) + (uint64_t(ts.tv_nsec) / 1000000u);
   return uint32_t(t & 0xFFFFFFFFu);
 #elif defined(_POSIX_MONOTONIC_CLOCK) && _POSIX_MONOTONIC_CLOCK >= 0
   struct timespec ts;

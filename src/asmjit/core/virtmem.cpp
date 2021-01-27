@@ -29,7 +29,7 @@
 #include "../core/support.h"
 #include "../core/virtmem.h"
 
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(MOLLENOS)
   #include <errno.h>
   #include <fcntl.h>
   #include <sys/mman.h>
@@ -215,10 +215,122 @@ Error VirtMem::releaseDualMapping(DualMapping* dm, size_t size) noexcept {
 #endif
 
 // ============================================================================
+// [asmjit::VirtMem - Virtual Memory [Vali]]
+// ============================================================================
+
+#if defined(MOLLENOS)
+#include <os/mollenos.h>
+static void VirtMem_getInfo(VirtMem::Info& vmInfo) noexcept {
+  SystemDescriptor_t descriptor;
+  SystemQuery(&descriptor);
+
+  vmInfo.pageSize = (uint32_t)Support::alignUpPowerOf2<size_t>(descriptor.PageSizeBytes);
+  vmInfo.pageGranularity = (uint32_t)descriptor.AllocationGranularityBytes;
+}
+
+static unsigned int VirtMem_accessToValiFlags(uint32_t flags) noexcept {
+  unsigned int protectFlags = MEMORY_COMMIT;
+
+  // READ|WRITE|EXECUTE.
+  if (flags & VirtMem::kAccessRead)
+    protectFlags |= MEMORY_READ;
+  if (flags & VirtMem::kAccessWrite)
+    protectFlags |= MEMORY_WRITE;
+  if (flags & VirtMem::kAccessExecute)
+    protectFlags |= MEMORY_EXECUTABLE;
+
+  return protectFlags;
+}
+
+Error VirtMem::alloc(void** p, size_t size, uint32_t flags) noexcept {
+  *p = nullptr;
+  if (size == 0)
+    return DebugUtils::errored(kErrorInvalidArgument);
+
+  unsigned int vflags = VirtMem_accessToValiFlags(flags);
+  OsStatus_t   status = MemoryAllocate(nullptr, size, vflags, p);
+
+  if (status != OsSuccess)
+    return DebugUtils::errored(kErrorOutOfMemory);
+  return kErrorOk;
+}
+
+Error VirtMem::release(void* p, size_t size) noexcept {
+  if (ASMJIT_UNLIKELY(MemoryFree(p, size) != OsSuccess))
+    return DebugUtils::errored(kErrorInvalidArgument);
+  return kErrorOk;
+}
+
+Error VirtMem::protect(void* p, size_t size, uint32_t flags) noexcept {
+  unsigned int protectFlags = VirtMem_accessToValiFlags(flags);
+  unsigned int oldFlags;
+
+  if (MemoryProtect(p, size, protectFlags, &oldFlags) == OsSuccess)
+    return kErrorOk;
+
+  return DebugUtils::errored(kErrorInvalidArgument);
+}
+
+Error VirtMem::allocDualMapping(DualMapping* dm, size_t size, uint32_t flags) noexcept {
+  dm->ro = nullptr;
+  dm->rw = nullptr;
+
+  if (size == 0)
+    return DebugUtils::errored(kErrorInvalidArgument);
+
+  // create the base mapping with RW
+  Error status = alloc(&dm->rw, size, flags & ~VirtMem_dualMappingFilter[1]);
+  if (status != kErrorOk)
+    return status;
+
+  // create a new mapping with R/X
+  struct dma_buffer_info bufferInfo;
+  bufferInfo.name = nullptr;
+  bufferInfo.flags = DMA_PERSISTANT;
+  bufferInfo.capacity = size;
+  bufferInfo.length = size;
+
+  OsStatus_t osStatus = dma_export(dm->rw, &bufferInfo, &dm->rwAttachment);
+  if (osStatus != OsSuccess) {
+    release(dm->rw, size);
+    return DebugUtils::errored(kErrorOutOfMemory);
+  }
+
+  (void)dma_attach(dm->rwAttachment.handle, &dm->rxAttachment);
+  osStatus = dma_attachment_map(&dm->rxAttachment, DMA_ACCESS_EXECUTE);
+  if (osStatus != OsSuccess) {
+    dma_detach(&dm->rxAttachment);
+    dma_detach(&dm->rwAttachment);
+    release(dm->rw, size);
+    return DebugUtils::errored(kErrorOutOfMemory);
+  }
+
+  dm->ro = dm->rxAttachment.buffer;
+  return kErrorOk;
+}
+
+Error VirtMem::releaseDualMapping(DualMapping* dm, size_t size) noexcept {
+  if (dm->ro) {
+    dma_attachment_unmap(&dm->rxAttachment);
+    dma_detach(&dm->rxAttachment);
+  }
+
+  if (dm->rw) {
+    dma_detach(&dm->rwAttachment);
+    release(dm->rw, size);
+  }
+
+  dm->ro = nullptr;
+  dm->rw = nullptr;
+  return kErrorOk;
+}
+#endif
+
+// ============================================================================
 // [asmjit::VirtMem - Virtual Memory [Posix]]
 // ============================================================================
 
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(MOLLENOS)
 class AnonymousMemory {
 public:
   enum FileType : uint32_t {
